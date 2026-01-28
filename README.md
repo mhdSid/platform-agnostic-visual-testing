@@ -1,253 +1,160 @@
-# Compositor-Level Visual Regression Testing
+# DOM Snapshot Visual Regression Testing
 
-An approach to visual regression testing that intercepts Chrome's rendering pipeline at the compositor level, capturing deterministic paint commands instead of comparing pixels.
-
-## Table of Contents
-
-- [The Problem](#the-problem)
-- [The Solution](#the-solution)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [How It Works](#how-it-works)
-- [Benchmark Results](#benchmark-results)
-- [Technical Architecture](#technical-architecture)
-- [API Reference](#api-reference)
-- [Project Structure](#project-structure)
-- [Limitations](#limitations)
-- [Contributing](#contributing)
+Platform-independent visual regression testing by capturing DOM structure and applied CSS rules instead of pixels.
 
 ## The Problem
 
-Traditional visual regression testing compares screenshots pixel-by-pixel, generating false positives due to platform-specific rendering differences in font rendering, GPU drivers, and color profiles.
+Traditional visual regression testing compares screenshots pixel-by-pixel, generating false positives due to platform-specific rendering:
 
-### Why Pixel Comparison Fails
-
-The same webpage produces different pixels on different machines:
 - **Windows**: DirectWrite + ClearType subpixel rendering
 - **macOS**: Core Text + Quartz smoothing  
 - **Linux**: FreeType + grayscale antialiasing
 
-Even a 1px font shift creates thousands of pixel differences, causing tests to fail despite identical visual appearance.
+Even a 1px font shift creates thousands of pixel differences, causing tests to fail despite identical visual intent.
 
-## The Solution
+## Why Not Compositor-Level Capture?
 
-We intercept Chrome's rendering pipeline at the **compositor level** (before rasterization) using the Chrome DevTools Protocol to capture:
+We initially explored intercepting Chrome's compositor paint commands. **It doesn't work for cross-platform testing** because:
 
-- **Paint commands**: `DrawRect()`, `FillText()`, `SetColor()`
-- **Transform matrices**: Rotation, scale, translation
-- **Layer structure**: Compositor layer tree
-- **Computed styles**: Layout-affecting properties
+- Paint command counts differ across platforms (Mac: 312 commands, Linux: 247 for same element)
+- Text rendering bypasses paint commands entirely (goes to OS-level APIs)
+- GPU capabilities, antialiasing, and driver quirks affect command generation
+- Skia generates different internal commands based on backend
 
-These produce **identical SHA-256 hashes** across all platforms.
+Paint commands are implementation details, not semantic representation.
+
+## The Solution: DOM + Styles Snapshot
+
+Capture the browser's rendering intent **after** style resolution but **before** rasterization:
+```
+HTML/CSS → Parse → Layout → Style Resolution  ← CAPTURE HERE (deterministic)
+                                    ↓
+                             Paint → Rasterize → Composite  (platform-specific)
+```
+
+### What We Capture
+
+- **DOM structure**: Tags, hierarchy, attributes
+- **Bounding boxes**: Position and size from `getBoundingClientRect()`
+- **Applied CSS**: Rules from stylesheets (not computed styles)
+- **Pseudo-states**: `:hover`, `:focus`, `:active` styles without triggering them
+- **Text content**: Direct text nodes
+
+This produces **identical JSON** on Mac, Windows, and Linux.
 
 ## Installation
-
 ```bash
 npm install
 ```
 
-## Quick Start: Compositor Interception VRT
+## Quick Start
 
+### With WebdriverIO
+```javascript
+// wdio.conf.js
+import { DOMSnapshotService } from './lib/wdio/dom-snapshot-service.js'
+
+export const config = {
+  services: [
+    [DOMSnapshotService, {
+      mode: 'full',
+      updateBaseline: process.env.UPDATE_BASELINE === 'true',
+      browser: {
+        ignoreSelectors: ['.loading', '.timestamp'],
+        ignoreTags: ['script', 'style', 'svg']
+      }
+    }]
+  ]
+}
+```
+```javascript
+// test.spec.js
+describe('Visual Regression', () => {
+  it('should match baseline', async () => {
+    await browser.url('/dashboard')
+    const result = await browser.snapshot.compare('dashboard', '#app')
+    expect(result.match).toBe(true)
+  })
+})
+```
+
+### Running Tests
 ```bash
-# Run test (creates baseline on first run)
-node capture-compositor.js
+# Compare against baselines
+npx wdio run wdio.conf.js
 
-# Run with verbose output
-node capture-compositor.js --verbose
-
-# Reset baseline
-node capture-compositor.js --reset
+# Update baselines
+UPDATE_BASELINE=true npx wdio run wdio.conf.js
 ```
 
-## Quick Start: Pixel Based VRT
+## API
 
-```bash
-# Run test (creates baseline on first run)
-node capture-pixels.js
+### Capture Methods
+```javascript
+// Capture DOM structure only
+await browser.snapshot.captureDOM('name', 'selector')
 
-# Run with verbose output
-node capture-pixels.js --verbose
+// Capture styles only  
+await browser.snapshot.captureStyles('name', 'selector')
 
-# Reset baseline
-node capture-pixels.js --reset
+// Capture both (recommended)
+await browser.snapshot.captureFull('name', 'selector')
 ```
 
-## Run Benchmarks
-
-```bash
-# Run benchmark comparison
-node benchmark.js
+### Compare Methods
+```javascript
+const result = await browser.snapshot.compare('name', 'selector')
+// result.match: boolean
+// result.diff: array of changes (if mismatch)
 ```
 
-## How It Works
-
-### Rendering Pipeline Interception
-
-```
-                          🖥️ YOUR WEB PAGE
-                                 |
-                                 ↓
-                        [Browser Engine Starts]
-                                 |
-    ┌────────────────────────────┴────────────────────────────┐
-    │            DETERMINISTIC RENDERING STEPS                │
-    │              (Same on Every Machine)                    │
-    │                                                         │
-    │  1. PARSE: HTML/CSS → DOM + Style Trees                 │
-    │  2. LAYOUT: Calculate positions & sizes                 │
-    │  3. LAYER: Assign elements to layers                    │
-    │  4. PAINT: Generate draw commands                       │
-    └────────────────────────────┬────────────────────────────┘
-                                 |
-                          ╔══════▼══════╗
-                          ║ 🎯 WE CATCH ║  ← Chrome DevTools Protocol
-                          ║   IT HERE!  ║     LayerTree.makeSnapshot()
-                          ╚══════╤══════╝
-                                 |
-                 ┌───────────────┴───────────────┐
-                 ↓                               ↓
-      [Extract Paint Commands]          [Continue to Rasterization]
-      SHA-256: "a7f3b2c9..."            (Platform-specific pixels)
-      ✅ SAME HASH EVERYWHERE            ❌ DIFFERENT ON EACH OS
+### Configuration
+```javascript
+browser.snapshot.ignore('.dynamic-content')  // Ignore selector
+browser.snapshot.setMode('dom')              // 'dom' | 'styles' | 'full'
+browser.snapshot.updateBaseline()            // Set update mode
 ```
 
-### Example Paint Commands
-
-```json
+## Output Structure
+```javascript
 {
-  "method": "drawRect",
-  "params": {
-    "rect": { "left": 100, "top": 50, "right": 300, "bottom": 150 },
-    "paint": { "color": "#FF3498DB" }
-  }
-},
-{
-  "method": "drawTextBlob",
-  "params": {
-    "x": 148.5,
-    "y": 107,
-    "paint": { "color": "#FFFFFFFF" }
-  }
+  tag: "div",
+  attrs: { class: "card", id: "main" },
+  box: { x: 100, y: 50, w: 300, h: 200 },
+  text: "Hello World",
+  styles: { display: "flex", padding: "16px" },
+  pseudo: { 
+    hover: { background: "#eee" }
+  },
+  children: [...]
 }
 ```
 
-## Benchmark Results
-
-### Performance Comparison
-
-| Metric | Compositor Method | Pixel Method | Winner |
-|--------|------------------|--------------|---------|
-| **Average Duration** | 2.28 seconds | 2.60 seconds | Compositor (14% faster) |
-| **Success Rate** | 100% | 0% | Compositor |
-| **Consistency** | Perfect | Inconsistent | Compositor |
-| **Storage Size** | 1.07 MB | 2.50 MB | Compositor (2.3× smaller) |
-
-### Why Compositor Wins
-
-- **Zero false positives**: 100% success rate vs 0% for pixel comparison
-- **Faster execution**: 14% faster on average
-- **Smaller storage**: JSON commands vs PNG images
-- **Perfect consistency**: Same hash across all platforms
-
-## Technical Architecture
-
-### Chrome DevTools Protocol Integration
-
-```javascript
-// Key CDP methods used
-client.send('LayerTree.enable')           // Activate layer inspection
-client.send('LayerTree.makeSnapshot')     // Create layer snapshot
-client.send('LayerTree.snapshotCommandLog') // Extract paint commands
+## File Structure
 ```
-
-### Files Generated
-
-```
-├── baseline.json         # Reference paint commands & hash
-├── actual.json          # Current paint commands & hash
-├── compositor-images/   # Optional visual references
-│   ├── baseline.png
-│   └── actual.png
-└── benchmark-results.json # Performance comparison data
-```
-
-## API Reference
-
-### Main Scripts
-
-#### `capture-compositor.js`
-
-Main compositor interception script.
-
-**Options:**
-- `--verbose, -v` - Show detailed output
-- `--reset, -r` - Reset baseline
-- `--clean` - Remove all generated files
-- `--help, -h` - Display help
-
-#### `capture-pixels.js`
-
-Traditional pixel comparison (for benchmarking).
-
-**Options:**
-- `--verbose, -v` - Show detailed output
-- `--reset, -r` - Reset baseline images
-- `--clean` - Remove all image folders
-
-#### `benchmark.js`
-
-Runs performance comparison between both methods.
-
-## Project Structure
-
-```
-compositor-vrt/
-├── capture-compositor.js    # Compositor interception script
-├── capture-pixels.js        # Pixel comparison script
-├── benchmark.js            # Performance comparison
-├── test.html              # Simple test page
-├── complex-test.html      # Complex test page with layers
-├── baseline.json          # Baseline paint commands
-├── actual.json           # Current paint commands
-├── compositor-images/    # Visual references (optional)
-├── baseline-images/      # Pixel comparison baselines
-├── actual-images/        # Pixel comparison actuals
-├── diff-images/         # Pixel comparison diffs
-└── package.json         # Dependencies
+snapshots/
+├── baseline/
+│   └── dashboard.full.json
+├── actual/
+│   └── dashboard.full.json
+└── diff/
+    └── dashboard.full.diff.json
 ```
 
 ## Limitations
 
-- **Browser Support**: Only Chromium-based browsers (Chrome, Edge, Brave)
-- **Protocol Dependency**: Requires Chrome DevTools Protocol access
-- **Layer Creation**: Simple pages may not create compositor layers
-  - Add `will-change: transform` to force layer creation
-  - Use `transform: translateZ(0)` as alternative
-- **Canvas Content**: Canvas internal changes are NOT detected
-  - Compositor sees canvas as a single opaque texture
-  - Drawing operations inside canvas don't affect paint commands
-  - Requires additional canvas.toDataURL() or pixel extraction
-- **Video Frames**: Current video frame changes are not captured
-  - Video elements appear as static layers to compositor
-  - Frame-by-frame changes require separate video capture logic
-- **WebGL/3D Graphics**: Internal 3D rendering changes go undetected
-  - WebGL renders to a bitmap that compositor treats as static
-  - Need specialized WebGL state capture for full coverage
-- **Dynamic Images**: Changing image sources may not trigger layer changes
-  - Image swaps might maintain same paint structure
-  - Requires tracking image URLs separately
-- **SVG Animations**: Internal SVG state changes might not propagate
-  - Some SVG updates don't trigger new paint commands
-  - Need SVG DOM serialization for complete detection
+- **Dynamic content**: Use `ignoreSelectors` for timestamps, random IDs
+- **Canvas/WebGL**: Internal drawing not captured (only the element exists)
+- **Animations**: Capture at rest state or ignore animated elements
+- **Third-party styles**: Cross-origin stylesheets may not be readable
 
-## Contributing
+## Comparison
 
-Areas for improvement:
-
-1. **Multi-browser Support**: Firefox Marionette, Safari WebDriver
-2. **Diff Visualization**: Better UI for viewing command differences
-3. **CI Integration**: GitHub Actions, Jenkins plugins
-4. **Framework Integration**: Jest, Mocha, Playwright adapters
+| Approach | Platform Independent | What It Tests |
+|----------|---------------------|---------------|
+| Pixel comparison | ❌ No | Exact visual output |
+| Compositor commands | ❌ No | Low-level paint ops |
+| **DOM Snapshot** | ✅ Yes | Rendering intent |
 
 ## License
 

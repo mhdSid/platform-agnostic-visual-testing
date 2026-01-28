@@ -2975,9 +2975,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"chromedriver@npm:^140.0.2":
-  version: 140.0.2
-  resolution: "chromedriver@npm:140.0.2"
+"chromedriver@npm:143.0.1":
+  version: 143.0.1
+  resolution: "chromedriver@npm:143.0.1"
   dependencies:
     "@testim/chrome-version": "npm:^1.1.4"
     axios: "npm:^1.12.0"
@@ -2988,7 +2988,7 @@ __metadata:
     tcp-port-used: "npm:^1.0.2"
   bin:
     chromedriver: bin/chromedriver
-  checksum: 10/32639de54e5ad93c3a49f9dbda84ba83bb3a807ebadc76d69096e31772ca8b2be45dd3a795cfd6c1ed70e19805a692e52823e9fe16d77b845ea639fe3c0dcad4
+  checksum: 10/5e79ec1e03377febaccda71cb5827af9896528c41bd7103061c71b7bdd53822f1d0fa5f6802bec4bad54b58e177e1c3ad996b595a0669f42a34d9db9c4528145
   languageName: node
   linkType: hard
 
@@ -3189,7 +3189,7 @@ __metadata:
     "@wdio/local-runner": "npm:^8.24.0"
     "@wdio/mocha-framework": "npm:^8.24.0"
     "@wdio/spec-reporter": "npm:^8.24.0"
-    chromedriver: "npm:^140.0.2"
+    chromedriver: "npm:143.0.1"
     eslint: "npm:^8.19.0"
     eslint-config-standard: "npm:^17.1.0"
     eslint-config-standard-jsx: "npm:^11.0.0"

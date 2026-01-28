@@ -8,7 +8,8 @@
     "test:pixels": "node ./lib/node/capture-pixels.js",
     "test:benchmark": "node ./lib/node/benchmark.js",
     "wdio:test": "wdio run wdio.conf.js",
-    "wdio:test:compositor": "wdio run wdio.conf.js --spec test/specs/compositor.test.js"
+    "wdio:test:compositor": "wdio run wdio.conf.js --spec test/specs/compositor.test.js",
+    "wdio:test:domSnapshot": "wdio run wdio.conf.js --spec test/specs/domSnapshot.test.js"
   },
   "dependencies": {
     "@wdio/cli": "^8.24.0",
@@ -16,7 +17,7 @@
     "@wdio/local-runner": "^8.24.0",
     "@wdio/mocha-framework": "^8.24.0",
     "@wdio/spec-reporter": "^8.24.0",
-    "chromedriver": "^140.0.2",
+    "chromedriver": "143.0.1",
     "pixelmatch": "^7.1.0",
     "pngjs": "^7.0.0",
     "puppeteer": "^24.20.0",

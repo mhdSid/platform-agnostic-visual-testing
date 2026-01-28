@@ -1,9 +1,5 @@
 import { CompositorService } from './lib/wdio/compositor-service.js'
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+import { DOMSnapshotService } from './lib/wdio/dom-snapshot-service.js'
 
 export const config = {
   runner: 'local',
@@ -42,6 +38,18 @@ export const config = {
   services: [
     'chromedriver',
     'devtools',
+    [DOMSnapshotService, {
+      baselineDir: './snapshots/baseline',
+      actualDir: './snapshots/actual',
+      diffDir: './snapshots/diff',
+      mode: 'full',
+      updateBaseline: process.env.UPDATE_BASELINE === 'true',
+      browser: {
+        ignoreTags: ['script', 'style', 'svg'],
+        ignoreSelectors: ['.loading', '.timestamp'],
+        ignoreHidden: true
+      }
+    }],
     [CompositorService, {
       baselineDir: './baseline-data',
       actualDir: './actual-data',

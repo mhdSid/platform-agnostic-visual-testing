@@ -1,7 +1,7 @@
 {
   "name": "simple-page",
-  "timestamp": "2025-09-16T17:02:26.666Z",
-  "hash": "ac31fb48b66cc82f3730266d6b19a885",
+  "timestamp": "2026-01-28T11:39:45.688Z",
+  "hash": "ac31fb48b66cc82f",
   "mode": "compositor",
   "layerCount": 585,
   "commands": [
@@ -53123,11 +53123,11 @@
     }
   ],
   "metadata": {
-    "url": "file:///Users/mohammad.sidani/Desktop/rakuten/Compositor-Level-Visual-Regression-Testing/fixtures/test.html",
+    "url": "file:///Users/mohamedsidani/Desktop/dev/compositor-interception-captures/fixtures/test.html",
     "viewport": {
       "width": 756,
       "height": 556
     },
-    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/140.0.0.0 Safari/537.36"
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/144.0.0.0 Safari/537.36"
   }
 }
