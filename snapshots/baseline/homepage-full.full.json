@@ -1,8 +1,8 @@
 {
   "name": "homepage-full",
   "type": "full",
-  "timestamp": "2026-01-28T12:14:44.554Z",
-  "hash": "0d192df5eae364d2",
+  "timestamp": "2026-02-04T14:34:27.281Z",
+  "hash": "5ce98a84e8e31dcf",
   "meta": {
     "title": "Complex Compositor Test Page",
     "url": "file:///Users/mohamedsidani/Desktop/dev/compositor-interception-captures/fixtures/test.html",
@@ -36292,6 +36292,19 @@
             "text": "© 2024 Compositor Test - Generating Complex Layers for Testing"
           }
         ],
+        "pseudo": {
+          "hover": {
+            "background-attachment": "initial",
+            "background-clip": "initial",
+            "background-color": "red",
+            "background-image": "initial",
+            "background-origin": "initial",
+            "background-position-x": "initial",
+            "background-position-y": "initial",
+            "background-repeat": "initial",
+            "background-size": "initial"
+          }
+        },
         "styles": {
           "backdrop-filter": "blur(10px)",
           "backface-visibility": "hidden",
